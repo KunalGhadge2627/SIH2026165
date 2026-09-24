@@ -1,0 +1,6 @@
+report_id,report_type,text,site,location,activity
+OIL-001,near_miss,"During pump maintenance the technician started work without isolating the electrical supply and another worker was standing near the equipment.",Duliajan,Pump House,Equipment Maintenance
+OIL-002,unsafe_condition,"Welding was being carried out close to flammable material without a valid hot work permit.",Duliajan,Workshop,Hot Work
+OIL-003,near_miss,"A worker entered a confined vessel where oxygen testing had not been completed.",Digboi,Tank Farm,Confined Space Entry
+OIL-004,unsafe_act,"A person was standing inside the crane swing radius during lifting operations.",Duliajan,Construction Area,Lifting Operations
+OIL-005,unsafe_condition,"Scaffold work was observed at height without adequate fall protection.",Rajasthan,Process Area,Work at Height
