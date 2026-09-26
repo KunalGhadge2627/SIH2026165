@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAppState } from '../../context/AppStateContext';
 import { RiskBadge } from '../common/RiskBadge';
+import { canPerformAction } from '../../utils/rbac';
 
 export const CaseDetailView: React.FC = () => {
   const { reports, selectedReportId, updateReportStatus, navigateTo, currentUser } = useAppState();
@@ -341,13 +342,26 @@ export const CaseDetailView: React.FC = () => {
 
           {/* HSE Case Review Workbench */}
           <div className="bg-white rounded-xl border-2 border-oil-gold p-5 shadow-md space-y-4">
-            <div className="border-b border-slate-200 pb-3">
-              <h3 className="text-base font-extrabold text-oil-navy flex items-center gap-2">
-                <UserCheck className="w-5 h-5 text-oil-gold" />
-                HSE Case Review Workbench
-              </h3>
-              <p className="text-xs text-slate-500">Validate AI classification & log human-in-the-loop retraining feedback.</p>
+            <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-extrabold text-oil-navy flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-oil-gold" />
+                  HSE Case Review Workbench
+                </h3>
+                <p className="text-xs text-slate-500">Validate AI classification & log human-in-the-loop retraining feedback.</p>
+              </div>
+              {!canPerformAction(currentUser.role, 'review_report') && (
+                <span className="bg-slate-100 border border-slate-200 text-slate-600 text-[10px] font-extrabold px-2.5 py-1 rounded-md">
+                  View-Only Mode ({currentUser.role})
+                </span>
+              )}
             </div>
+
+            {!canPerformAction(currentUser.role, 'review_report') && (
+              <div className="bg-slate-50 border border-slate-200 text-slate-600 text-xs p-3 rounded-lg font-medium">
+                🔒 You are viewing this case in <strong>View-Only</strong> mode. Only <strong>HSE Officers</strong> can submit or modify review validation decisions.
+              </div>
+            )}
 
             {isSubmitted && (
               <div className="bg-emerald-100 border border-emerald-300 text-emerald-900 p-3 rounded-lg text-xs font-bold flex items-center gap-2">
@@ -362,12 +376,13 @@ export const CaseDetailView: React.FC = () => {
                 <div className="grid grid-cols-1 gap-2">
                   <button
                     type="button"
+                    disabled={!canPerformAction(currentUser.role, 'review_report')}
                     onClick={() => setReviewDecision('Confirmed PSIF')}
                     className={`p-2.5 rounded-lg font-bold border transition text-left flex items-center justify-between ${
                       reviewDecision === 'Confirmed PSIF'
                         ? 'bg-red-600 text-white border-red-700 shadow-sm'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
+                    } disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
                     <span>Confirm PSIF Potential</span>
                     <CheckCircle2 className="w-4 h-4" />
@@ -375,12 +390,13 @@ export const CaseDetailView: React.FC = () => {
 
                   <button
                     type="button"
+                    disabled={!canPerformAction(currentUser.role, 'review_report')}
                     onClick={() => setReviewDecision('Rejected PSIF')}
                     className={`p-2.5 rounded-lg font-bold border transition text-left flex items-center justify-between ${
                       reviewDecision === 'Rejected PSIF'
                         ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
+                    } disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
                     <span>Reject PSIF (False Positive)</span>
                     <XCircle className="w-4 h-4" />
@@ -388,12 +404,13 @@ export const CaseDetailView: React.FC = () => {
 
                   <button
                     type="button"
+                    disabled={!canPerformAction(currentUser.role, 'review_report')}
                     onClick={() => setReviewDecision('Further Review')}
                     className={`p-2.5 rounded-lg font-bold border transition text-left flex items-center justify-between ${
                       reviewDecision === 'Further Review'
                         ? 'bg-amber-600 text-white border-amber-700 shadow-sm'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
+                    } disabled:opacity-60 disabled:cursor-not-allowed`}
                   >
                     <span>Send for Further Field Investigation</span>
                     <Clock className="w-4 h-4" />
@@ -408,9 +425,10 @@ export const CaseDetailView: React.FC = () => {
                 <textarea
                   rows={3}
                   value={commentText}
+                  disabled={!canPerformAction(currentUser.role, 'review_report')}
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Enter detailed validation rationale for audit trail..."
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:border-oil-blue"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium focus:outline-none focus:border-oil-blue disabled:opacity-60 disabled:cursor-not-allowed"
                   required
                 ></textarea>
               </div>
@@ -421,7 +439,8 @@ export const CaseDetailView: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full bg-oil-navy hover:bg-oil-navy-dark text-white font-extrabold py-2.5 px-4 rounded-lg transition shadow flex items-center justify-center gap-2"
+                disabled={!canPerformAction(currentUser.role, 'review_report')}
+                className="w-full bg-oil-navy hover:bg-oil-navy-dark text-white font-extrabold py-2.5 px-4 rounded-lg transition shadow flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Submit Review & Record Retraining Feedback
               </button>

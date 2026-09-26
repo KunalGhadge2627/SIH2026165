@@ -74,12 +74,12 @@ export const Header: React.FC = () => {
             )}
           </button>
 
-          <div className="hidden xl:flex items-center gap-2 h-10 rounded-xl border border-slate-200 bg-slate-50 px-3">
-            <ShieldCheck className="w-4 h-4 text-oil-gold" />
+          <div className="flex items-center gap-1 sm:gap-2 h-10 rounded-xl border border-slate-200 bg-slate-50 px-2 sm:px-3">
+            <ShieldCheck className="w-4 h-4 text-oil-gold shrink-0" />
             <select
               value={currentUser.role}
               onChange={(e) => setUserRole(e.target.value as UserRole)}
-              className="bg-transparent text-xs font-semibold text-oil-navy outline-none"
+              className="bg-transparent text-xs font-semibold text-oil-navy outline-none cursor-pointer"
             >
               <option value="HSE Officer">HSE Officer</option>
               <option value="Site Manager">Site Manager</option>

@@ -1,16 +1,39 @@
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, List, Optional
 from pydantic import BaseModel, Field
 
 class ReportInput(BaseModel):
-    report_id: str | None = None
-    report_type: Literal["unsafe_act", "unsafe_condition", "near_miss", "incident", "observation"] = "near_miss"
-    text: str = Field(min_length=10)
-    site: str | None = None
-    location: str | None = None
-    activity: str | None = None
-    reported_at: datetime | None = None
+    report_id: Optional[str] = None
+    report_type: str = "near_miss"
+    site: Optional[str] = "Duliajan"
+    date: Optional[str] = None
+    activity: Optional[str] = "General Operations"
+    narrative: Optional[str] = None
+    text: Optional[str] = None
+    location: Optional[str] = "Process Site"
+    person_type: Optional[str] = "Contractor"
+    immediate_cause: Optional[str] = None
+    contributing_factors: Optional[str] = None
+    corrective_action: Optional[str] = None
+    reported_at: Optional[datetime] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+class LsrConfidence(BaseModel):
+    rule: str
+    confidence: float
+
+class StructuredAiAnalysis(BaseModel):
+    sif_potential: bool
+    confidence: float
+    priority: Literal["Low", "Medium", "High", "Critical"]
+    life_saving_rules: List[LsrConfidence]
+    activity: str
+    hazards: List[str]
+    precursors: List[str]
+    barrier_failures: List[str]
+    exposure: List[str]
+    evidence: List[str]
+    explanation: str
 
 class RiskSignal(BaseModel):
     category: str

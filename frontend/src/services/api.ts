@@ -4,23 +4,25 @@ const API_BASE_URL = typeof window !== 'undefined' && window.location.port === '
   ? '/api'
   : 'http://127.0.0.1:8000/api';
 
-
 export interface SingleReportPayload {
   report_id?: string;
-  report_type: 'near_miss' | 'unsafe_act' | 'unsafe_condition' | 'incident';
-  text: string;
+  report_type: string;
   site: string;
-  location: string;
+  date: string;
   activity: string;
-  date?: string;
-  contractor_type?: 'OIL Staff' | 'Contractor';
-  immediate_causes?: string;
+  narrative: string;
+  location?: string;
+  person_type?: string;
+  immediate_cause?: string;
   contributing_factors?: string;
-  corrective_actions?: string;
+  corrective_action?: string;
 }
 
 export interface CsvUploadResponse {
+  total_rows: number;
   processed: number;
+  failed: number;
+  duplicates: number;
   sif_potential: number;
   results: SafetyReport[];
 }
@@ -61,6 +63,12 @@ export const api = {
     return res.json();
   },
 
+  async getReportById(reportId: string): Promise<{ document: any; safety_report: SafetyReport }> {
+    const res = await fetch(`${API_BASE_URL}/reports/${reportId}`);
+    if (!res.ok) throw new Error(`Failed to fetch report '${reportId}'`);
+    return res.json();
+  },
+
   async getPatterns(): Promise<PrecursorPattern[]> {
     const res = await fetch(`${API_BASE_URL}/patterns`);
     if (!res.ok) throw new Error('Failed to fetch patterns from backend');
@@ -79,23 +87,22 @@ export const api = {
     return res.json();
   },
 
-  async analyzeReport(payload: SingleReportPayload): Promise<{ analysis: any; safety_report: SafetyReport }> {
+  async analyzeReport(payload: SingleReportPayload): Promise<{ is_duplicate?: boolean; analysis: any; document: any; safety_report: SafetyReport }> {
     const res = await fetch(`${API_BASE_URL}/reports/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        report_id: payload.report_id,
+        report_id: payload.report_id || undefined,
         report_type: payload.report_type,
-        text: payload.text,
         site: payload.site,
-        location: payload.location,
+        date: payload.date,
         activity: payload.activity,
-        metadata: {
-          contractor_type: payload.contractor_type || 'Contractor',
-          immediate_causes: payload.immediate_causes || '',
-          contributing_factors: payload.contributing_factors || '',
-          corrective_actions: payload.corrective_actions || ''
-        }
+        narrative: payload.narrative,
+        location: payload.location,
+        person_type: payload.person_type,
+        immediate_cause: payload.immediate_cause,
+        contributing_factors: payload.contributing_factors,
+        corrective_action: payload.corrective_action,
       })
     });
     if (!res.ok) {
@@ -117,5 +124,9 @@ export const api = {
       throw new Error(`CSV Upload failed: ${err}`);
     }
     return res.json();
+  },
+
+  downloadCsvTemplate() {
+    window.location.href = `${API_BASE_URL}/reports/template/csv`;
   }
 };

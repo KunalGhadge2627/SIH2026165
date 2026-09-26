@@ -1,11 +1,13 @@
 import React from 'react';
 import { LayoutDashboard, FileText, BrainCircuit, Map, GitMerge, TrendingUp, ShieldAlert, UploadCloud, Settings, Activity, LogOut, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useAppState, ViewName } from '../../context/AppStateContext';
+import { isViewAllowed } from '../../utils/rbac';
 
 export const Sidebar: React.FC = () => {
-  const { activeView, navigateTo, isSidebarCollapsed, toggleSidebar, logout, reports } = useAppState();
+  const { activeView, navigateTo, isSidebarCollapsed, toggleSidebar, logout, reports, currentUser } = useAppState();
   const awaitingReviewCount = reports.filter((r) => r.review_status === 'Awaiting HSE Review').length;
-  const sections: Array<{ title: string; items: Array<{ id: ViewName; label: string; icon: React.ElementType; badge?: number }> }> = [
+  
+  const rawSections: Array<{ title: string; items: Array<{ id: ViewName; label: string; icon: React.ElementType; badge?: number }> }> = [
     { title: 'Overview', items: [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }] },
     { title: 'Analyze', items: [
       { id: 'reports', label: 'Safety Reports', icon: FileText },
@@ -23,6 +25,15 @@ export const Sidebar: React.FC = () => {
       { id: 'settings', label: 'Settings', icon: Settings },
     ] },
   ];
+
+  // Filter sections and items based on role permissions
+  const sections = rawSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => isViewAllowed(currentUser.role, item.id))
+    }))
+    .filter((section) => section.items.length > 0);
+
   return <>
     {!isSidebarCollapsed && <div className="fixed inset-0 z-30 bg-slate-950/30 lg:hidden" onClick={toggleSidebar} />}
     <aside className={`fixed lg:static z-40 inset-y-0 left-0 shrink-0 bg-oil-navy text-white transition-all duration-300 ${isSidebarCollapsed ? 'w-16 -translate-x-full lg:translate-x-0' : 'w-64 translate-x-0'}`}>
@@ -45,3 +56,4 @@ export const Sidebar: React.FC = () => {
     </aside>
   </>;
 };
+
