@@ -124,46 +124,53 @@ Safety Report to Analyze:
 """
 
     if api_key:
-        # Try Google GenAI / Gemini API if available
-        candidate_models = [settings.llm_model] if settings.llm_model else ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.8-flash']
-        for target_model in candidate_models:
-            if not target_model: continue
+        # Try Google GenAI / Gemini API if provider is gemini or auto
+        if provider in ("gemini", "auto", "none"):
+            primary_models = [settings.llm_model] if settings.llm_model else []
+            fallback_models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-flash-latest']
+            candidate_models = []
+            for m in primary_models + fallback_models:
+                if m and m not in candidate_models:
+                    candidate_models.append(m)
+
+            for target_model in candidate_models:
+                try:
+                    from google import genai
+                    from google.genai import types
+                    client = genai.Client(api_key=api_key)
+                    response = client.models.generate_content(
+                        model=target_model,
+                        contents=user_prompt,
+                        config=types.GenerateContentConfig(
+                            system_instruction=SYSTEM_INSTRUCTION,
+                            response_mime_type="application/json",
+                            temperature=0.2,
+                        ),
+                    )
+                    parsed = json.loads(response.text)
+                    logger.info(f"Successfully generated structured SIF analysis using Gemini model: {target_model}")
+                    return _format_and_validate_llm_json(parsed, report_data)
+                except Exception as e:
+                    logger.warning(f"Google GenAI SDK call failed for model {target_model}: {e}")
+
+        # Try OpenAI API if explicitly configured
+        if provider == "openai":
             try:
-                from google import genai
-                from google.genai import types
-                client = genai.Client(api_key=api_key)
-                response = client.models.generate_content(
-                    model=target_model,
-                    contents=user_prompt,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_INSTRUCTION,
-                        response_mime_type="application/json",
-                        temperature=0.2,
-                    ),
+                import openai
+                client = openai.OpenAI(api_key=api_key)
+                response = client.chat.completions.create(
+                    model=settings.llm_model or "gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": SYSTEM_INSTRUCTION},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.2,
                 )
-                parsed = json.loads(response.text)
-                logger.info(f"Successfully generated structured SIF analysis using Gemini model: {target_model}")
+                parsed = json.loads(response.choices[0].message.content)
                 return _format_and_validate_llm_json(parsed, report_data)
             except Exception as e:
-                logger.warning(f"Google GenAI SDK call failed for model {target_model}: {e}")
-
-        # Try OpenAI API if available
-        try:
-            import openai
-            client = openai.OpenAI(api_key=api_key)
-            response = client.chat.completions.create(
-                model=settings.llm_model or "gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": SYSTEM_INSTRUCTION},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.2,
-            )
-            parsed = json.loads(response.choices[0].message.content)
-            return _format_and_validate_llm_json(parsed, report_data)
-        except Exception as e:
-            logger.warning(f"OpenAI API call failed: {e}. Utilizing fallback analyzer.")
+                logger.warning(f"OpenAI API call failed: {e}. Utilizing fallback analyzer.")
 
     # Fallback to backend SIF engine adhering to exact JSON schema
     return _fallback_nlp_analysis(report_data)
