@@ -16,8 +16,23 @@ import { OIL_SITES } from '../../data/mockReports';
 import { RiskBadge } from '../common/RiskBadge';
 
 export const AiTriageView: React.FC = () => {
-  const { reports, selectedSiteFilter, setSiteFilter, navigateTo } = useAppState();
-  const [triageFilter, setTriageFilter] = useState<'All' | 'Awaiting' | 'Critical'>('Awaiting');
+  const { reports, selectedSiteFilter, setSiteFilter, selectedRuleName, navigateTo } = useAppState();
+  const [triageFilter, setTriageFilter] = useState<'All' | 'Awaiting' | 'Critical'>('All');
+
+  const LSR_CANON: Record<string, string> = {
+    'Energy Isolation': 'Energy Isolation',
+    'Line of Fire': 'Line of Fire',
+    'Hot Work': 'Hot Work',
+    'Confined Space': 'Confined Space',
+    'Work at Height': 'Working at Height',
+    'Working at Height': 'Working at Height',
+    'Lifting': 'Safe Mechanical Lifting',
+    'Safe Mechanical Lifting': 'Safe Mechanical Lifting',
+    'Driving': 'Driving',
+    'Bypassing Safety Controls': 'Bypassing Safety Controls',
+    'Work Authorisation': 'Work Authorisation',
+    'Work Authorization': 'Work Authorisation',
+  };
 
   const counts = useMemo(() => {
     const sifReports = reports.filter((r) => r.classification === 'PSIF Potential' || r.p_sif >= 0.55);
@@ -33,11 +48,18 @@ export const AiTriageView: React.FC = () => {
       const isSif = r.classification === 'PSIF Potential' || r.p_sif >= 0.55;
       if (!isSif) return false;
       if (selectedSiteFilter !== 'All OIL Sites' && r.site !== selectedSiteFilter) return false;
+      if (selectedRuleName) {
+        const hasRule = (r.life_saving_rules || []).some((lsr) => {
+          const c = LSR_CANON[lsr.rule] || lsr.rule;
+          return c === selectedRuleName || lsr.rule === selectedRuleName;
+        });
+        if (!hasRule) return false;
+      }
       if (triageFilter === 'Awaiting' && r.review_status !== 'Awaiting HSE Review') return false;
       if (triageFilter === 'Critical' && r.risk_level !== 'CRITICAL') return false;
       return true;
     })
-    .sort((a, b) => b.p_sif - a.p_sif), [reports, selectedSiteFilter, triageFilter]);
+    .sort((a, b) => b.p_sif - a.p_sif), [reports, selectedSiteFilter, selectedRuleName, triageFilter]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -100,6 +122,21 @@ export const AiTriageView: React.FC = () => {
             </label>
           </div>
         </div>
+
+        {selectedRuleName && (
+          <div className="px-5 py-2.5 bg-blue-50/80 border-b border-blue-100 flex items-center justify-between text-xs">
+            <span className="font-semibold text-oil-navy flex items-center gap-1.5">
+              <span className="font-bold">Filtered by Rule:</span> {selectedRuleName}
+              {selectedSiteFilter !== 'All OIL Sites' && ` • Site: ${selectedSiteFilter} Field`}
+            </span>
+            <button
+              onClick={() => navigateTo('triage', { ruleName: undefined })}
+              className="text-blue-700 hover:text-blue-900 font-bold hover:underline"
+            >
+              Clear rule filter ✕
+            </button>
+          </div>
+        )}
 
         <div className="p-5 space-y-3 bg-slate-50/60">
           {filtered.length === 0 ? (
