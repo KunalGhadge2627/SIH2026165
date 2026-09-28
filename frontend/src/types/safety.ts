@@ -2,7 +2,7 @@ export type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 
 export type ReportType = 'Near Miss' | 'Unsafe Act (UA)' | 'Unsafe Condition (UC)' | 'Incident';
 
-export type ReviewStatus = 'Awaiting HSE Review' | 'Confirmed PSIF' | 'Rejected PSIF' | 'Under Investigation';
+export type ReviewStatus = 'Awaiting HSE Review' | 'Confirmed PSIF' | 'Rejected PSIF' | 'Under Investigation' | 'Reviewed';
 
 export type LifeSavingRuleName =
   | 'Bypassing Safety Controls'
@@ -98,6 +98,7 @@ export interface EarlyWarningAlert {
   recommended_action: string;
   timestamp: string;
   status: 'Active' | 'Acknowledged' | 'Investigating' | 'Resolved';
+  related_report_ids?: string[];
 }
 
 export interface ModelHealthStats {

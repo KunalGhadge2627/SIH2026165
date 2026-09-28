@@ -33,7 +33,7 @@ export const SearchModal: React.FC = () => {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search Report ID (e.g. OIL-INC-2026-00482), Site, Rule, LOTO, Gas Test..."
+            placeholder="Search Report ID (e.g. OIL-001), Site, Rule, LOTO, Gas Test..."
             className="flex-1 bg-transparent text-sm text-slate-800 focus:outline-none placeholder-slate-400 font-medium"
             autoFocus
           />
@@ -48,7 +48,7 @@ export const SearchModal: React.FC = () => {
         {/* Quick Tag suggestions */}
         <div className="px-4 py-2 bg-white border-b border-slate-100 flex items-center gap-2 text-xs">
           <span className="text-slate-400 font-medium">Quick Searches:</span>
-          {['OIL-INC-2026-00482', 'LOTO', 'Gas Test', 'Duliajan', 'Confined Space'].map((tag) => (
+          {['OIL-001', 'LOTO', 'Gas Test', 'Duliajan', 'Confined Space'].map((tag) => (
             <button
               key={tag}
               onClick={() => setQuery(tag)}

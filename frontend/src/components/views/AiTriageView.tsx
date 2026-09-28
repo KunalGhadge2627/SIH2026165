@@ -19,14 +19,19 @@ export const AiTriageView: React.FC = () => {
   const { reports, selectedSiteFilter, setSiteFilter, navigateTo } = useAppState();
   const [triageFilter, setTriageFilter] = useState<'All' | 'Awaiting' | 'Critical'>('Awaiting');
 
-  const counts = useMemo(() => ({
-    awaiting: reports.filter((r) => r.review_status === 'Awaiting HSE Review').length,
-    critical: reports.filter((r) => r.risk_level === 'CRITICAL').length,
-    sif: reports.filter((r) => r.classification === 'PSIF Potential').length,
-  }), [reports]);
+  const counts = useMemo(() => {
+    const sifReports = reports.filter((r) => r.classification === 'PSIF Potential' || r.p_sif >= 0.55);
+    return {
+      awaiting: sifReports.filter((r) => r.review_status === 'Awaiting HSE Review').length,
+      critical: sifReports.filter((r) => r.risk_level === 'CRITICAL').length,
+      sif: sifReports.length,
+    };
+  }, [reports]);
 
   const filtered = useMemo(() => reports
     .filter((r) => {
+      const isSif = r.classification === 'PSIF Potential' || r.p_sif >= 0.55;
+      if (!isSif) return false;
       if (selectedSiteFilter !== 'All OIL Sites' && r.site !== selectedSiteFilter) return false;
       if (triageFilter === 'Awaiting' && r.review_status !== 'Awaiting HSE Review') return false;
       if (triageFilter === 'Critical' && r.risk_level !== 'CRITICAL') return false;
@@ -77,7 +82,7 @@ export const AiTriageView: React.FC = () => {
               {[
                 ['Awaiting', `Needs review (${counts.awaiting})`],
                 ['Critical', `High / critical (${counts.critical})`],
-                ['All', 'All reports'],
+                ['All', `All SIF (${counts.sif})`],
               ].map(([value, label]) => (
                 <button
                   key={value}

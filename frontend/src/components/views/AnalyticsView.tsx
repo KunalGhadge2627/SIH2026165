@@ -218,23 +218,38 @@ export const AnalyticsView: React.FC = () => {
             Top Barrier Failures Frequency Across OIL
           </h2>
           <div className="space-y-2 text-xs">
-            {[
-              { name: 'Isolation Not Verified / LOTO Missing', count: 67, pct: 36.4 },
-              { name: 'Confined Space Gas Testing Omitted', count: 48, pct: 26.0 },
-              { name: 'Hot Work Near Hydrocarbons W/O Gas Detector', count: 42, pct: 22.8 },
-              { name: 'Damaged Rigging Tackle / Wire Rope Slings', count: 39, pct: 21.1 },
-              { name: 'Safety Interlock Relay Jumpered', count: 24, pct: 13.0 }
-            ].map((item, idx) => (
-              <div key={idx} className="space-y-1">
-                <div className="flex justify-between font-medium text-slate-700">
-                  <span>{item.name}</span>
-                  <span className="font-mono font-bold text-red-700">{item.count} Reports ({item.pct}%)</span>
+            {(() => {
+              const items: { barrier: string; count: number; percentage: number }[] =
+                backendAnalytics?.top_barrier_failures || [];
+
+              if (items.length === 0) {
+                return (
+                  <div className="py-6 text-center text-slate-400 text-xs font-medium">
+                    No barrier failure data available.
+                  </div>
+                );
+              }
+
+              // The bar width is scaled so the top barrier fills 100% of the bar track
+              const maxCount = items[0].count;
+
+              return items.map((item, idx) => (
+                <div key={idx} className="space-y-1">
+                  <div className="flex justify-between font-medium text-slate-700">
+                    <span>{item.barrier}</span>
+                    <span className="font-mono font-bold text-red-700 shrink-0 ml-2">
+                      {item.count} {item.count === 1 ? 'Report' : 'Reports'} ({item.percentage}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div
+                      className="bg-red-600 h-full rounded-full"
+                      style={{ width: `${Math.round((item.count / Math.max(1, maxCount)) * 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className="bg-red-600 h-full rounded-full" style={{ width: `${item.pct * 2}%` }}></div>
-                </div>
-              </div>
-            ))}
+              ));
+            })()}
           </div>
         </div>
       </div>

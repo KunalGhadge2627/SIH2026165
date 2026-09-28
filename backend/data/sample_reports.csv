@@ -1,6 +1,31 @@
-report_id,report_type,text,site,location,activity
-OIL-001,near_miss,"During pump maintenance the technician started work without isolating the electrical supply and another worker was standing near the equipment.",Duliajan,Pump House,Equipment Maintenance
-OIL-002,unsafe_condition,"Welding was being carried out close to flammable material without a valid hot work permit.",Duliajan,Workshop,Hot Work
-OIL-003,near_miss,"A worker entered a confined vessel where oxygen testing had not been completed.",Digboi,Tank Farm,Confined Space Entry
-OIL-004,unsafe_act,"A person was standing inside the crane swing radius during lifting operations.",Duliajan,Construction Area,Lifting Operations
-OIL-005,unsafe_condition,"Scaffold work was observed at height without adequate fall protection.",Rajasthan,Process Area,Work at Height
+report_id,report_type,date,text,site,location,activity
+OIL-001,near_miss,2026-01-14,"During pump maintenance, the technician started work without isolating the electrical supply.",Jorhat,Pump House,Equipment Maintenance
+OIL-002,unsafe_condition,2026-01-22,Welding was being carried out close to combustible material without adequate separation.,Moran,Workshop Bay 2,Hot Work
+OIL-003,near_miss,2026-01-29,A worker entered a confined vessel before oxygen and gas testing had been completed.,Lakhimpur,Process Vessel V-304,Confined Space Entry
+OIL-004,unsafe_act,2026-02-08,A person was standing inside the crane swing radius while lifting operations were in progress.,Duliajan,Crane Yard,Mechanical Lifting
+OIL-005,unsafe_condition,2026-02-17,Scaffold work was observed at height with incomplete edge protection.,Digboi,Maintenance Area,Work at Height
+OIL-006,near_miss,2026-02-25,A loose hand tool was noticed near the edge of a workbench and secured before it fell.,Jorhat,Workshop,Housekeeping
+OIL-007,unsafe_condition,2026-03-05,A pedestrian walkway had a small amount of water near the entrance after routine cleaning.,Moran,Administration Block,Housekeeping
+OIL-008,unsafe_act,2026-03-12,An employee stopped to use the handrail before descending an office stairway.,Duliajan,Office Building,Routine Movement
+OIL-009,near_miss,2026-03-19,A vehicle stopped when a pedestrian approached a marked parking area.,Lakhimpur,Parking Area,Driving
+OIL-010,unsafe_condition,2026-03-27,A fire extinguisher cabinet was partially obstructed by stored cartons.,Digboi,Office Store,Fire Safety
+OIL-011,near_miss,2026-04-04,A small oil drip was noticed below a pump during routine inspection and maintenance was scheduled.,Jorhat,Pump House,Inspection
+OIL-012,unsafe_condition,2026-04-11,Several small metal offcuts were left near a fabrication workbench.,Moran,Fabrication Shop,Housekeeping
+OIL-013,near_miss,2026-04-18,A portable electrical cable with a damaged outer sheath was identified and removed from service.,Duliajan,Maintenance Workshop,Electrical Maintenance
+OIL-014,unsafe_act,2026-04-26,A driver began moving a light vehicle before all passengers confirmed that seat belts were fastened.,Lakhimpur,Field Road,Driving
+OIL-015,incident,2026-05-03,A minor hand scratch occurred while unpacking a carton; first aid was provided.,Digboi,Stores Area,Material Handling
+OIL-016,unsafe_condition,2026-05-11,A drinking-water dispenser was leaking slightly and a maintenance request was raised.,Jorhat,Canteen,Facility Maintenance
+OIL-017,near_miss,2026-05-19,A spanner slipped from a technician's hand during bench work but landed on the floor without contacting anyone.,Moran,Workshop,Equipment Maintenance
+OIL-018,unsafe_condition,2026-05-27,"A temporary sign was missing from a wet floor during cleaning, and the area was immediately barricaded.",Duliajan,Canteen,Housekeeping
+OIL-019,near_miss,2026-06-04,A worker approached a suspended load and moved back when the lifting supervisor instructed personnel to remain outside the exclusion zone.,Lakhimpur,Pipe Yard,Mechanical Lifting
+OIL-020,unsafe_condition,2026-06-12,A gas detector was found with an expired calibration date during a pre-use equipment check.,Digboi,Process Area,Gas Detection
+OIL-021,incident,2026-06-20,A worker received a small superficial cut from a paper edge while preparing routine documentation.,Jorhat,Office,Administrative Work
+OIL-022,near_miss,2026-06-28,A forklift operator stopped at an intersection after noticing a pedestrian approaching from the opposite aisle.,Moran,Warehouse,Material Handling
+OIL-023,unsafe_condition,2026-07-04,A storage rack contained cartons slightly above the recommended stacking height; the cartons were rearranged.,Duliajan,Warehouse,Material Storage
+OIL-024,near_miss,2026-07-12,A maintenance worker found a valve label that was difficult to read and paused the task until identification was verified.,Lakhimpur,Process Area,Equipment Maintenance
+OIL-025,unsafe_condition,2026-07-20,A welding machine was switched off and the surrounding area was cleared after routine hot-work activities were completed.,Digboi,Workshop,Hot Work
+OIL-026,near_miss,2026-07-28,A technician identified residual pressure in a line during preparation for maintenance and stopped work until the line was depressurized.,Jorhat,Process Unit,Energy Isolation
+OIL-027,unsafe_condition,2026-08-04,A stairway handrail had a loose mounting point and was reported for repair.,Moran,Utility Building,Facility Maintenance
+OIL-028,incident,2026-08-11,A worker experienced minor discomfort from dust during a short housekeeping activity; the task was paused and ventilation improved.,Duliajan,Workshop,Housekeeping
+OIL-029,near_miss,2026-08-19,"A vehicle approached a site junction above the posted internal speed limit, and the driver reduced speed after being alerted by the spotter.",Lakhimpur,Internal Road,Driving
+OIL-030,unsafe_condition,2026-08-27,A maintenance platform had a missing toe board on one section and access was restricted until repair.,Digboi,Maintenance Platform,Work at Height

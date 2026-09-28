@@ -137,6 +137,6 @@ def format_as_safety_report(report: ReportInput, result: AnalysisResult) -> dict
         },
         "highlighted_phrases": phrases,
         "risk_level": risk_level,
-        "review_status": "Awaiting HSE Review"
+        "review_status": "Awaiting HSE Review" if result.sif_potential else "Reviewed"
     }
 

@@ -63,6 +63,7 @@ interface AppStateContextType {
     decision: 'Confirmed PSIF' | 'Rejected PSIF' | 'Further Review',
     comment: string
   ) => void;
+  updateAlertStatus: (alertId: string, status: EarlyWarningAlert['status']) => void;
   addReport: (report: SafetyReport) => void;
   addBatchReports: (newReports: SafetyReport[]) => void;
   setSiteFilter: (site: string) => void;
@@ -83,7 +84,7 @@ const AppStateContext = createContext<AppStateContextType | undefined>(undefined
 export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(true);
   const [activeView, setActiveView] = useState<ViewName>('dashboard');
-  const [selectedReportId, setSelectedReportId] = useState<string | null>('OIL-INC-2026-00482');
+  const [selectedReportId, setSelectedReportId] = useState<string | null>('OIL-001');
   const [selectedRuleName, setSelectedRuleName] = useState<LifeSavingRuleName | null>(null);
   
   const [selectedSiteFilter, setSelectedSiteFilter] = useState<string>('All OIL Sites');
@@ -118,19 +119,13 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (connected) {
           api.getReports().then((data) => {
             if (isMounted && data && data.length > 0) {
-              // Backend is available — use backend reports as the primary source.
-              // Backend records take priority; any locally-submitted reports
-              // not yet persisted to backend are appended so nothing is lost.
-              setReports((prev) => {
-                const map = new Map<string, SafetyReport>();
-                // Backend records first (authoritative)
-                data.forEach((r) => map.set(r.report_id, r));
-                // Keep session-only records not yet in backend
-                prev.forEach((r) => {
-                  if (!map.has(r.report_id)) map.set(r.report_id, r);
-                });
-                return Array.from(map.values());
-              });
+              setReports(data);
+            }
+          }).catch(() => {});
+
+          api.getAlerts().then((data) => {
+            if (isMounted && data) {
+              setAlerts(data);
             }
           }).catch(() => {});
         }
@@ -144,12 +139,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const { api } = await import('../services/api');
       const data = await api.getReports();
       if (data && data.length > 0) {
-        setReports((prev) => {
-          const map = new Map();
-          data.forEach((r) => map.set(r.report_id, r));
-          prev.forEach((r) => { if (!map.has(r.report_id)) map.set(r.report_id, r); });
-          return Array.from(map.values());
-        });
+        setReports(data);
       }
     } catch {}
   };
@@ -210,6 +200,15 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       new_training_labels: prev.new_training_labels + 1,
       corrections_count: decision === 'Rejected PSIF' ? prev.corrections_count + 1 : prev.corrections_count
     }));
+  };
+
+  const updateAlertStatus = (alertId: string, status: EarlyWarningAlert['status']) => {
+    setAlerts((prev) =>
+      prev.map((a) => (a.id === alertId ? { ...a, status } : a))
+    );
+    import('../services/api').then(({ api }) => {
+      api.updateAlertStatus(alertId, status).catch(() => {});
+    });
   };
 
   const addReport = (newReport: SafetyReport) => {
@@ -276,6 +275,7 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       navigateTo,
       dismissUnauthorizedNotice,
       updateReportStatus,
+      updateAlertStatus,
       addReport,
       addBatchReports,
       setSiteFilter: setSelectedSiteFilter,

@@ -1,18 +1,111 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Grid, Filter, Info, ShieldAlert, ArrowRight, MapPin } from 'lucide-react';
 import { useAppState } from '../../context/AppStateContext';
-import { PRECURSOR_HEATMAP_DATA } from '../../data/mockHeatmap';
 import { OIL_SITES } from '../../data/mockReports';
 import { IOGP_LIFE_SAVING_RULES } from '../../data/mockRules';
 import { LifeSavingRuleName, HeatmapCell } from '../../types/safety';
 
+// ─── types ────────────────────────────────────────────────────────────────────
+interface BackendHeatmapCell {
+  site: string;
+  rule: string;
+  psif_count: number;
+  total_sif_at_site: number;
+  density: number;
+  risk_level: string;
+}
+
 export const HeatmapView: React.FC = () => {
-  const { navigateTo, selectedSiteFilter, setSiteFilter } = useAppState();
+  const { reports, navigateTo, selectedSiteFilter, setSiteFilter } = useAppState();
 
   const [hoveredCell, setHoveredCell] = useState<HeatmapCell | null>(null);
+  const [backendHeatmap, setBackendHeatmap] = useState<BackendHeatmapCell[] | null>(null);
+
+  // Fetch dynamic heatmap from backend analytics endpoint
+  React.useEffect(() => {
+    import('../../services/api').then(({ api }) => {
+      api.getAnalytics().then((data) => {
+        if (data && Array.isArray(data.heatmap)) {
+          setBackendHeatmap(data.heatmap);
+        }
+      }).catch(() => {});
+    });
+  }, []);
 
   const rules = IOGP_LIFE_SAVING_RULES.map((r) => r.name);
   const sites = selectedSiteFilter === 'All OIL Sites' ? OIL_SITES : [selectedSiteFilter];
+
+  // ── Compute heatmap from the reports state as a live fallback ────────────────
+  // This runs client-side and uses the same SIF threshold (p_sif >= 0.55)
+  // and the same LSR structure as the rest of the application.
+  // It is used ONLY when the backend has not yet responded.
+  const localHeatmap = useMemo((): BackendHeatmapCell[] => {
+    const LSR_CANON: Record<string, string> = {
+      'Energy Isolation': 'Energy Isolation',
+      'Line of Fire': 'Line of Fire',
+      'Hot Work': 'Hot Work',
+      'Confined Space': 'Confined Space',
+      'Work at Height': 'Working at Height',
+      'Working at Height': 'Working at Height',
+      'Lifting': 'Safe Mechanical Lifting',
+      'Safe Mechanical Lifting': 'Safe Mechanical Lifting',
+      'Driving': 'Driving',
+      'Bypassing Safety Controls': 'Bypassing Safety Controls',
+      'Work Authorisation': 'Work Authorisation',
+      'Work Authorization': 'Work Authorisation',
+    };
+
+    // SIF-potential reports only (same threshold as dashboard)
+    const sifReports = reports.filter((r) => r.p_sif >= 0.55);
+
+    // Site SIF totals (denominator for percentage)
+    const siteSifTotal: Record<string, number> = {};
+    // Cell counts
+    const cellCount: Record<string, number> = {};
+
+    for (const r of sifReports) {
+      const site = r.site;
+      siteSifTotal[site] = (siteSifTotal[site] || 0) + 1;
+
+      // Each report can have multiple LSRs — contribute to every matching cell
+      const rawRules = (r.life_saving_rules || []).map((lsr) => lsr.rule);
+      const canonRules = [...new Set(
+        rawRules
+          .map((raw) => LSR_CANON[raw])
+          .filter((c): c is string => Boolean(c))
+      )];
+
+      for (const lsr of canonRules) {
+        const key = `${site}|||${lsr}`;
+        cellCount[key] = (cellCount[key] || 0) + 1;
+      }
+    }
+
+    const cells: BackendHeatmapCell[] = [];
+    for (const [key, cnt] of Object.entries(cellCount)) {
+      const [site, rule] = key.split('|||');
+      const siteTotal = siteSifTotal[site] || 1;
+      const density = Math.round((cnt / siteTotal) * 1000) / 10;
+      const risk_level =
+        density >= 35 ? 'CRITICAL' :
+        density >= 25 ? 'HIGH' :
+        density >= 15 ? 'MEDIUM' : 'LOW';
+      cells.push({ site, rule, psif_count: cnt, total_sif_at_site: siteTotal, density, risk_level });
+    }
+    return cells;
+  }, [reports]);
+
+  // Prefer backend data; fall back to local computation
+  const heatmapSource: BackendHeatmapCell[] = backendHeatmap ?? localHeatmap;
+
+  // Build lookup: "site|||rule" → cell
+  const cellIndex = useMemo(() => {
+    const idx: Record<string, BackendHeatmapCell> = {};
+    for (const cell of heatmapSource) {
+      idx[`${cell.site}|||${cell.rule}`] = cell;
+    }
+    return idx;
+  }, [heatmapSource]);
 
   // Helper for cell color intensity based on PSIF count & density
   const getCellBgClass = (psifCount: number, density: number) => {
@@ -112,15 +205,16 @@ export const HeatmapView: React.FC = () => {
                   </td>
 
                   {rules.map((ruleName) => {
-                    const cell = PRECURSOR_HEATMAP_DATA.find(
-                      (c) => c.site === site && c.rule === ruleName
-                    ) || {
+                    // Look up the real cell; default to zero if not found
+                    const raw = cellIndex[`${site}|||${ruleName}`];
+                    const cell: HeatmapCell = {
                       site,
                       rule: ruleName as LifeSavingRuleName,
-                      psif_count: 0,
-                      total_reports: 12,
-                      density: 0,
-                      risk_level: 'LOW'
+                      psif_count: raw?.psif_count ?? 0,
+                      // total_reports shown in tooltip = total SIF at site
+                      total_reports: raw?.total_sif_at_site ?? 0,
+                      density: raw?.density ?? 0,
+                      risk_level: (raw?.risk_level ?? 'LOW') as HeatmapCell['risk_level'],
                     };
 
                     const cellBg = getCellBgClass(cell.psif_count, cell.density);
@@ -133,7 +227,7 @@ export const HeatmapView: React.FC = () => {
                         onClick={() =>
                           navigateTo('triage', {
                             site: cell.site,
-                            ruleName: cell.rule
+                            ruleName: cell.rule,
                           })
                         }
                         className={`p-3 border border-slate-200 text-xs transition cursor-pointer relative ${cellBg}`}
@@ -162,8 +256,9 @@ export const HeatmapView: React.FC = () => {
                 {hoveredCell.site} Field × {hoveredCell.rule}
               </div>
               <div className="text-slate-300 mt-0.5">
-                <span className="font-bold text-white">{hoveredCell.psif_count} PSIF Reports</span> out of{' '}
-                {hoveredCell.total_reports} Total Reports (Density Rate: {hoveredCell.density}%)
+                <span className="font-bold text-white">{hoveredCell.psif_count} PSIF Reports</span>{' '}
+                out of{' '}
+                {hoveredCell.total_reports} SIF-potential reports at this site (Density: {hoveredCell.density}%)
               </div>
             </div>
           </div>
@@ -182,7 +277,7 @@ export const HeatmapView: React.FC = () => {
               onClick={() =>
                 navigateTo('triage', {
                   site: hoveredCell.site,
-                  ruleName: hoveredCell.rule
+                  ruleName: hoveredCell.rule,
                 })
               }
               className="bg-white text-oil-navy hover:bg-slate-100 font-bold px-3 py-1.5 rounded text-xs transition flex items-center gap-1"

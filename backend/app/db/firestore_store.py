@@ -171,7 +171,7 @@ def _format_unified_document(rep_dict: Dict[str, Any], res_dict: Dict[str, Any])
             "model_version": res_dict.get("model_version", "gemini-sif-v1"),
         },
         "review": {
-            "status": rep_dict.get("review_status", "Awaiting HSE Review"),
+            "status": rep_dict.get("review_status", "Awaiting HSE Review" if res_dict.get("sif_potential") else "Reviewed"),
             "reviewed_by": None,
             "reviewed_at": None,
         },

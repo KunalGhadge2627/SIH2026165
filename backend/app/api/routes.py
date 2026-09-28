@@ -5,6 +5,7 @@ from ..schemas.report import ReportInput
 from ..services.llm_service import analyze_report_with_llm
 from ..db.firestore_store import save_report_document, get_all_reports, get_report_by_id, report_exists
 from ..services.patterns import discover_patterns
+from ..services.alerts import generate_early_warnings, update_alert_status
 
 router = APIRouter()
 
@@ -12,7 +13,22 @@ def _build_safety_report_format(doc: dict) -> dict:
     """Formats unified report document for frontend SafetyReport type compatibility."""
     ai = doc.get("ai_analysis", {})
     rules = ai.get("life_saving_rules") or []
-    lsr_name = rules[0].get("rule") if rules else "Work Authorisation"
+    rule_map = {
+        "Energy Isolation": "Energy Isolation",
+        "Line of Fire": "Line of Fire",
+        "Hot Work": "Hot Work",
+        "Confined Space": "Confined Space",
+        "Work at Height": "Working at Height",
+        "Working at Height": "Working at Height",
+        "Lifting": "Safe Mechanical Lifting",
+        "Safe Mechanical Lifting": "Safe Mechanical Lifting",
+        "Driving": "Driving",
+        "Bypassing Safety Controls": "Bypassing Safety Controls",
+        "Work Authorisation": "Work Authorisation",
+        "Work Authorization": "Work Authorisation"
+    }
+    raw_lsr = rules[0].get("rule") if rules else "Work Authorisation"
+    lsr_name = rule_map.get(raw_lsr, "Work Authorisation")
     rule_conf = rules[0].get("confidence", 0.85) if rules else 0.85
     if rule_conf <= 1.0: rule_conf = round(rule_conf * 100, 1)
 
@@ -73,7 +89,7 @@ def _build_safety_report_format(doc: dict) -> dict:
             {"text": narrative[:40], "category": "Barrier Failure", "note": "Precursor risk signal flagged by LLM Engine"}
         ],
         "risk_level": risk_level,
-        "review_status": doc.get("review", {}).get("status", "Awaiting HSE Review")
+        "review_status": doc.get("review", {}).get("status", "Awaiting HSE Review" if sif_potential else "Reviewed")
     }
 
 
@@ -122,7 +138,7 @@ def analyze(report: ReportInput):
             "model_version": "gemini-sif-v1"
         },
         "review": {
-            "status": "Awaiting HSE Review",
+            "status": "Awaiting HSE Review" if ai_result.get("sif_potential") else "Reviewed",
             "reviewed_by": None,
             "reviewed_at": None
         },
@@ -234,7 +250,7 @@ async def upload_csv(file: UploadFile = File(...)):
                     "model_version": "gemini-sif-v1"
                 },
                 "review": {
-                    "status": "Awaiting HSE Review",
+                    "status": "Awaiting HSE Review" if ai_result.get("sif_potential") else "Reviewed",
                     "reviewed_by": None,
                     "reviewed_at": None
                 },
@@ -287,7 +303,7 @@ def dashboard():
     formatted = [_build_safety_report_format(d) for d in docs]
     total = len(formatted)
     sif = sum(1 for r in formatted if r['p_sif'] >= 0.55)
-    awaiting = sum(1 for r in formatted if r['review_status'] == 'Awaiting HSE Review')
+    awaiting = sum(1 for r in formatted if (r['p_sif'] >= 0.55 or r.get('classification') == 'PSIF Potential') and r['review_status'] == 'Awaiting HSE Review')
     critical = sum(1 for r in formatted if r['risk_level'] == 'CRITICAL')
 
     site_counts = {}
@@ -302,28 +318,42 @@ def dashboard():
     site_dist = [{"site": s, "total": v["total"], "sif": v["sif"]} for s, v in site_counts.items()]
     site_dist.sort(key=lambda x: x["sif"], reverse=True)
 
-    trend = [
-        {"month": "Jan", "reports": 380, "sif": 52},
-        {"month": "Feb", "reports": 410, "sif": 61},
-        {"month": "Mar", "reports": 440, "sif": 74},
-        {"month": "Apr", "reports": 390, "sif": 58},
-        {"month": "May", "reports": 460, "sif": 81},
-        {"month": "Jun", "reports": 480, "sif": 79},
-        {"month": "Jul", "reports": 510, "sif": 91},
-        {"month": "Aug", "reports": 520, "sif": 88},
-    ]
-
-    top_alert = {
-        "id": "ALERT-001",
-        "title": "Confined Space Gas Clearance Omission Surge",
-        "site": "Digboi",
-        "severity": "CRITICAL",
-        "metric_text": "+42% increase in gas test omissions",
-        "common_precursor": "Vessel entry initiated prior to gas clearance certificate issue.",
-        "recommended_action": "HSE Audit on Gas Tester Instrument Calibration",
-        "timestamp": "2026-08-31 14:30",
-        "status": "Active"
+    month_names = {
+        "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr",
+        "05": "May", "06": "Jun", "07": "Jul", "08": "Aug",
+        "09": "Sep", "10": "Oct", "11": "Nov", "12": "Dec"
     }
+    monthly_groups = {}
+    for r in formatted:
+        d = str(r.get("date") or "2026-08-31")
+        key = d[:7] if len(d) >= 7 and d[4] == '-' else "2026-08"
+        if key not in monthly_groups:
+            monthly_groups[key] = {"total": 0, "sif": 0}
+        monthly_groups[key]["total"] += 1
+        if r["p_sif"] >= 0.55 or r.get("classification") == "PSIF Potential":
+            monthly_groups[key]["sif"] += 1
+
+    trend = []
+    for key in sorted(monthly_groups.keys()):
+        val = monthly_groups[key]
+        yr, mo = key.split('-')
+        m_name = month_names.get(mo, mo)
+        t_cnt = val["total"]
+        s_cnt = val["sif"]
+        rate = round((s_cnt / max(1, t_cnt)) * 100, 1)
+        trend.append({
+            "month": f"{m_name} {yr}",
+            "month_short": m_name,
+            "reports": t_cnt,
+            "total": t_cnt,
+            "sif": s_cnt,
+            "psif": s_cnt,
+            "sif_rate": rate,
+            "sifRate": rate
+        })
+
+    alerts = generate_early_warnings(10)
+    top_alert = alerts[0] if alerts else None
 
     return {
         "total_reports": total,
@@ -334,8 +364,27 @@ def dashboard():
         "site_distribution": site_dist,
         "monthly_trend": trend,
         "top_alert": top_alert,
+        "alerts": alerts,
         "patterns": discover_patterns(5)
     }
+
+
+@router.get('/alerts')
+def get_alerts():
+    """Returns all dynamically generated early warning alerts based on real safety report data."""
+    return generate_early_warnings(20)
+
+
+@router.post('/alerts/{alert_id}/status')
+def set_alert_status(alert_id: str, payload: dict):
+    """Updates status of an early warning alert (Active, Acknowledged, Investigating, Resolved)."""
+    new_status = payload.get("status")
+    if not new_status:
+        raise HTTPException(400, "Missing status in payload")
+    success = update_alert_status(alert_id, new_status)
+    if not success:
+        raise HTTPException(400, f"Invalid status '{new_status}'")
+    return {"status": "ok", "alert_id": alert_id, "new_status": new_status}
 
 
 @router.get('/analytics')
@@ -361,16 +410,176 @@ def analytics():
         if r['p_sif'] >= 0.55:
             act_data[a]["PSIF"] += 1
 
+    # ── Top Barrier Failures: dynamic aggregation from stored analysis ─────────
+    # Read barrier_failures directly from every report's stored analysis result.
+    # result_json holds the raw AnalysisResult for seed reports and ai_analysis
+    # for LLM-analyzed reports.  We read BOTH sources so no records are missed.
+    from collections import Counter as _Counter
+    from ..db.store import get_reports as _get_raw_rows
+    import json as _json
+
+    barrier_counter: _Counter = _Counter()
+    raw_rows = _get_raw_rows(10000)
+    for row in raw_rows:
+        # Primary source: result_json (sif_engine AnalysisResult)
+        try:
+            res = _json.loads(row['result_json'])
+            bf_list = res.get('barrier_failures') or []
+            for bf in bf_list:
+                bf = bf.strip()
+                if bf:
+                    barrier_counter[bf] += 1
+        except Exception:
+            pass
+
+        # Secondary source: ai_analysis.barrier_failures (LLM path)
+        try:
+            rep = _json.loads(row['report_json'])
+            ai_bf = (rep.get('ai_analysis') or {}).get('barrier_failures') or []
+            for bf in ai_bf:
+                bf = bf.strip()
+                if bf:
+                    barrier_counter[bf] += 1
+        except Exception:
+            pass
+
+    # Build top_barrier_failures list
+    top_n = 5
+    top_raw = barrier_counter.most_common(top_n)
+    total_occurrences = sum(barrier_counter.values())
+    top_barrier_failures = []
+    for barrier, count in top_raw:
+        pct = round((count / max(1, total_occurrences)) * 100, 1)
+        top_barrier_failures.append({
+            "barrier": barrier,
+            "count": count,
+            "percentage": pct
+        })
+
+    # ── SIF Precursor Density Heatmap: dynamic aggregation ────────────────────
+    # Canonical LSR name map — must match HeatmapView LSR columns exactly.
+    _LSR_CANON = {
+        "Energy Isolation": "Energy Isolation",
+        "Line of Fire": "Line of Fire",
+        "Hot Work": "Hot Work",
+        "Confined Space": "Confined Space",
+        "Work at Height": "Working at Height",
+        "Working at Height": "Working at Height",
+        "Lifting": "Safe Mechanical Lifting",
+        "Safe Mechanical Lifting": "Safe Mechanical Lifting",
+        "Driving": "Driving",
+        "Bypassing Safety Controls": "Bypassing Safety Controls",
+        "Work Authorisation": "Work Authorisation",
+        "Work Authorization": "Work Authorisation",
+    }
+    _ALL_RULES = [
+        "Bypassing Safety Controls", "Confined Space", "Driving",
+        "Energy Isolation", "Hot Work", "Line of Fire",
+        "Safe Mechanical Lifting", "Work Authorisation", "Working at Height",
+    ]
+
+    # Per-site count of SIF-potential reports (denominator for percentage)
+    _site_sif_total: dict = {}
+    # Per (site, rule) count of SIF-potential reports
+    _cell_count: dict = {}
+
+    for row in raw_rows:
+        try:
+            _rep = _json.loads(row['report_json'])
+            _res = _json.loads(row['result_json'])
+        except Exception:
+            continue
+
+        _site = _rep.get("site") or "Unknown"
+
+        # Determine SIF-potential — same logic as dashboard p_sif >= 0.55.
+        # result_json is the primary source for seed reports.
+        _sif_pot = False
+        _res_conf = float(_res.get("confidence", 0) or 0)
+        if _res_conf > 1.0:
+            _res_conf /= 100.0
+        if _res.get("sif_potential") is not None:
+            _sif_pot = bool(_res["sif_potential"])
+        else:
+            _ai = _rep.get("ai_analysis") or {}
+            _ai_conf = float(_ai.get("confidence", 0) or 0)
+            if _ai_conf > 1.0:
+                _ai_conf /= 100.0
+            if _ai.get("sif_potential") is not None:
+                _sif_pot = bool(_ai["sif_potential"])
+            else:
+                _sif_pot = max(_res_conf, _ai_conf) >= 0.55
+
+        if not _sif_pot:
+            continue  # Only SIF-potential reports contribute to the heatmap
+
+        # Accumulate site SIF total
+        _site_sif_total[_site] = _site_sif_total.get(_site, 0) + 1
+
+        # Collect all LSRs for this report — multi-label handled.
+        _lsrs_raw: list = []
+
+        # Primary: result_json single life_saving_rule field (sif_engine path)
+        _single = _res.get("life_saving_rule")
+        if isinstance(_single, str) and _single:
+            _lsrs_raw.append(_single)
+
+        # result_json may also have life_saving_rules list (LLM AnalysisResult)
+        _lr_list = _res.get("life_saving_rules") or []
+        for _item in _lr_list:
+            if isinstance(_item, dict):
+                _r = _item.get("rule") or ""
+                if _r:
+                    _lsrs_raw.append(_r)
+            elif isinstance(_item, str) and _item:
+                _lsrs_raw.append(_item)
+
+        # Secondary: ai_analysis.life_saving_rules (LLM path)
+        _ai2 = _rep.get("ai_analysis") or {}
+        _ai_rules = _ai2.get("life_saving_rules") or []
+        for _item in _ai_rules:
+            if isinstance(_item, dict):
+                _r = _item.get("rule") or ""
+                if _r:
+                    _lsrs_raw.append(_r)
+            elif isinstance(_item, str) and _item:
+                _lsrs_raw.append(_item)
+
+        # Normalize and deduplicate, keep only recognised canonical rules
+        _lsrs_canon = list(dict.fromkeys(
+            _LSR_CANON[_r] for _r in _lsrs_raw
+            if _r in _LSR_CANON and _LSR_CANON[_r] in _ALL_RULES
+        ))
+
+        for _lsr in _lsrs_canon:
+            _key = (_site, _lsr)
+            _cell_count[_key] = _cell_count.get(_key, 0) + 1
+
+    # Build flat heatmap list for every non-zero cell
+    _heatmap_cells = []
+    for (_site, _rule), _cnt in sorted(_cell_count.items(), key=lambda x: -x[1]):
+        _site_total = _site_sif_total.get(_site, 1)
+        _pct = round((_cnt / _site_total) * 100, 1)
+        _risk = (
+            "CRITICAL" if _pct >= 35.0 else
+            "HIGH"     if _pct >= 25.0 else
+            "MEDIUM"   if _pct >= 15.0 else
+            "LOW"
+        )
+        _heatmap_cells.append({
+            "site":       _site,
+            "rule":       _rule,
+            "psif_count": _cnt,
+            "total_sif_at_site": _site_total,
+            "density":    _pct,
+            "risk_level": _risk,
+        })
+
     return {
         "sites": list(site_data.values()),
         "activities": list(act_data.values()),
         "contractor_psif": sum(1 for r in formatted if r.get('contractor_type') == 'Contractor' and r['p_sif'] >= 0.55),
         "staff_psif": sum(1 for r in formatted if r.get('contractor_type') == 'OIL Staff' and r['p_sif'] >= 0.55),
-        "top_barriers": [
-            {"name": "Isolation Not Verified / LOTO Missing", "count": 67, "pct": 36.4},
-            {"name": "Confined Space Gas Testing Omitted", "count": 48, "pct": 26.0},
-            {"name": "Hot Work Near Hydrocarbons W/O Gas Detector", "count": 42, "pct": 22.8},
-            {"name": "Damaged Rigging Tackle / Wire Rope Slings", "count": 39, "pct": 21.1},
-            {"name": "Safety Interlock Relay Jumpered", "count": 24, "pct": 13.0}
-        ]
+        "top_barrier_failures": top_barrier_failures,
+        "heatmap": _heatmap_cells,
     }

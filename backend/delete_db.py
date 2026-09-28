@@ -7,4 +7,4 @@ if os.path.exists(db_path):
 else:
     print(f"[INFO] DB already gone: {db_path}")
 
-print("[OK] Database will be re-seeded with 20 unique reports on next backend startup.")
+print("[OK] Database will be re-seeded with 30 unique reports from sample_reports.csv on next backend startup.")

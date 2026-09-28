@@ -32,16 +32,41 @@ export const DashboardView: React.FC = () => {
 
   const total = dbMetrics?.total_reports ?? reports.length;
   const sif = dbMetrics?.sif_potential ?? reports.filter((r) => r.p_sif >= 0.55).length;
-  const review = dbMetrics?.awaiting_review ?? reports.filter((r) => r.review_status === 'Awaiting HSE Review').length;
+  const review = dbMetrics?.awaiting_review ?? reports.filter((r) => (r.p_sif >= 0.55 || r.classification === 'PSIF Potential') && r.review_status === 'Awaiting HSE Review').length;
   const critical = dbMetrics?.high_priority ?? reports.filter((r) => r.risk_level === 'CRITICAL').length;
   const sifRate = dbMetrics?.sif_rate ?? (Math.round((sif / Math.max(1, total)) * 1000) / 10);
 
-  const trend = dbMetrics?.monthly_trend || [
-    { month: 'Jan', reports: 380, sif: 52 }, { month: 'Feb', reports: 410, sif: 61 },
-    { month: 'Mar', reports: 440, sif: 74 }, { month: 'Apr', reports: 390, sif: 58 },
-    { month: 'May', reports: 460, sif: 81 }, { month: 'Jun', reports: 480, sif: 79 },
-    { month: 'Jul', reports: 510, sif: 91 }, { month: 'Aug', reports: 520, sif: 88 },
-  ];
+  const dynamicTrendFromReports = React.useMemo(() => {
+    const monthNames: Record<string, string> = {
+      '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
+      '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Aug',
+      '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec'
+    };
+    const groups: Record<string, { total: number; sif: number }> = {};
+    reports.forEach((r) => {
+      const d = r.date || '2026-08-31';
+      const key = d.length >= 7 && d[4] === '-' ? d.substring(0, 7) : '2026-08';
+      if (!groups[key]) groups[key] = { total: 0, sif: 0 };
+      groups[key].total += 1;
+      if (r.p_sif >= 0.55 || r.classification === 'PSIF Potential') {
+        groups[key].sif += 1;
+      }
+    });
+    return Object.keys(groups).sort().map((key) => {
+      const val = groups[key];
+      const [, mo] = key.split('-');
+      return {
+        month: monthNames[mo] || mo,
+        reports: val.total,
+        sif: val.sif
+      };
+    });
+  }, [reports]);
+
+  const trend = dbMetrics?.monthly_trend?.map((t: any) => ({
+    ...t,
+    month: t.month_short || t.month
+  })) || dynamicTrendFromReports;
 
   const siteData = dbMetrics?.site_distribution || OIL_SITES.map((site) => {
     const siteReports = reports.filter((r) => r.site === site);

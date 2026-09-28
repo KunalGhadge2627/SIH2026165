@@ -1,4 +1,4 @@
-import { SafetyReport, PrecursorPattern } from '../types/safety';
+import { SafetyReport, PrecursorPattern, EarlyWarningAlert } from '../types/safety';
 
 const API_BASE_URL = typeof window !== 'undefined' && window.location.port === '5173'
   ? '/api'
@@ -35,7 +35,8 @@ export interface DashboardMetricsResponse {
   sif_rate: number;
   site_distribution: Array<{ site: string; total: number; sif: number }>;
   monthly_trend: Array<{ month: string; reports: number; sif: number }>;
-  top_alert: any;
+  top_alert: EarlyWarningAlert | null;
+  alerts?: EarlyWarningAlert[];
   patterns: PrecursorPattern[];
 }
 
@@ -44,7 +45,16 @@ export interface AnalyticsResponse {
   activities: Array<{ activity: string; Total: number; PSIF: number }>;
   contractor_psif: number;
   staff_psif: number;
-  top_barriers: Array<{ name: string; count: number; pct: number }>;
+  top_barriers?: Array<{ name: string; count: number; pct: number }>;
+  top_barrier_failures?: Array<{ barrier: string; count: number; percentage: number }>;
+  heatmap?: Array<{
+    site: string;
+    rule: string;
+    psif_count: number;
+    total_sif_at_site: number;
+    density: number;
+    risk_level: string;
+  }>;
 }
 
 export const api = {
@@ -84,6 +94,22 @@ export const api = {
   async getAnalytics(): Promise<AnalyticsResponse> {
     const res = await fetch(`${API_BASE_URL}/analytics`);
     if (!res.ok) throw new Error('Failed to fetch analytics');
+    return res.json();
+  },
+
+  async getAlerts(): Promise<EarlyWarningAlert[]> {
+    const res = await fetch(`${API_BASE_URL}/alerts`);
+    if (!res.ok) throw new Error('Failed to fetch alerts');
+    return res.json();
+  },
+
+  async updateAlertStatus(alertId: string, status: EarlyWarningAlert['status']): Promise<{ status: string; alert_id: string; new_status: string }> {
+    const res = await fetch(`${API_BASE_URL}/alerts/${alertId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (!res.ok) throw new Error(`Failed to update status for alert '${alertId}'`);
     return res.json();
   },
 

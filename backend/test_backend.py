@@ -47,7 +47,9 @@ def test_all():
     print("Analytics metrics:", {k: len(analytics[k]) if isinstance(analytics[k], list) else analytics[k] for k in analytics})
 
     print("\n--- 7. Testing POST /api/reports/upload-csv ---")
-    with open("data/sample_reports.csv", "rb") as f:
+    from pathlib import Path
+    csv_file_path = Path(__file__).resolve().parent / "data" / "sample_reports.csv"
+    with open(csv_file_path, "rb") as f:
         r = client.post("/api/reports/upload-csv", files={"file": ("sample_reports.csv", f, "text/csv")})
     assert r.status_code == 200, r.text
     csv_res = r.json()
