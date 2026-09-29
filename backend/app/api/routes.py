@@ -387,63 +387,68 @@ def set_alert_status(alert_id: str, payload: dict):
     return {"status": "ok", "alert_id": alert_id, "new_status": new_status}
 
 
+def _normalize_site(s: str) -> str:
+    sl = (s or "").lower()
+    if 'digboi' in sl: return 'Digboi'
+    if 'duliajan' in sl: return 'Duliajan'
+    if 'naharkatia' in sl: return 'Naharkatia'
+    if 'moran' in sl: return 'Moran'
+    if 'jorhat' in sl: return 'Jorhat'
+    if 'lakhimpur' in sl: return 'Lakhimpur'
+    if 'shalmari' in sl: return 'Shalmari'
+    if 'kumchai' in sl: return 'Kumchai'
+    if sl.strip() == "": return "Unknown"
+    return s.strip()
+
 @router.get('/analytics')
 def analytics():
     docs = get_all_reports(10000)
     formatted = [_build_safety_report_format(d) for d in docs]
 
     site_data = {}
-    for r in formatted:
-        s = r.get('site', 'Duliajan')
+    for doc in docs:
+        raw_site = doc.get('site', 'Unknown')
+        s = _normalize_site(raw_site)
         if s not in site_data:
             site_data[s] = {"site": s, "Total": 0, "PSIF": 0}
         site_data[s]["Total"] += 1
-        if r['p_sif'] >= 0.55:
+        
+        is_sif = doc.get("ai_analysis", {}).get("sif_potential", False)
+        if not is_sif:
+            conf = float(doc.get("ai_analysis", {}).get("confidence", 0))
+            if conf > 1.0: conf /= 100.0
+            is_sif = conf >= 0.55
+            
+        if is_sif:
             site_data[s]["PSIF"] += 1
 
     act_data = {}
-    for r in formatted:
-        a = r.get('activity', 'General Operations')
+    for doc in docs:
+        a = (doc.get('activity') or 'General Operations').strip()
         if a not in act_data:
             act_data[a] = {"activity": a, "Total": 0, "PSIF": 0}
         act_data[a]["Total"] += 1
-        if r['p_sif'] >= 0.55:
+        
+        is_sif = doc.get("ai_analysis", {}).get("sif_potential", False)
+        if not is_sif:
+            conf = float(doc.get("ai_analysis", {}).get("confidence", 0))
+            if conf > 1.0: conf /= 100.0
+            is_sif = conf >= 0.55
+            
+        if is_sif:
             act_data[a]["PSIF"] += 1
 
-    # ── Top Barrier Failures: dynamic aggregation from stored analysis ─────────
-    # Read barrier_failures directly from every report's stored analysis result.
-    # result_json holds the raw AnalysisResult for seed reports and ai_analysis
-    # for LLM-analyzed reports.  We read BOTH sources so no records are missed.
     from collections import Counter as _Counter
-    from ..db.store import get_reports as _get_raw_rows
-    import json as _json
-
-    barrier_counter: _Counter = _Counter()
-    raw_rows = _get_raw_rows(10000)
-    for row in raw_rows:
-        # Primary source: result_json (sif_engine AnalysisResult)
-        try:
-            res = _json.loads(row['result_json'])
-            bf_list = res.get('barrier_failures') or []
-            for bf in bf_list:
-                bf = bf.strip()
-                if bf:
-                    barrier_counter[bf] += 1
-        except Exception:
-            pass
-
-        # Secondary source: ai_analysis.barrier_failures (LLM path)
-        try:
-            rep = _json.loads(row['report_json'])
-            ai_bf = (rep.get('ai_analysis') or {}).get('barrier_failures') or []
-            for bf in ai_bf:
-                bf = bf.strip()
-                if bf:
-                    barrier_counter[bf] += 1
-        except Exception:
-            pass
-
-    # Build top_barrier_failures list
+    barrier_counter = _Counter()
+    
+    for doc in docs:
+        ai = doc.get("ai_analysis", {})
+        bf_list = ai.get("barrier_failures") or []
+        for bf in bf_list:
+            bf = bf.strip()
+            if bf:
+                barrier_counter[bf] += 1
+                
     top_n = 5
     top_raw = barrier_counter.most_common(top_n)
     total_occurrences = sum(barrier_counter.values())
@@ -456,8 +461,6 @@ def analytics():
             "percentage": pct
         })
 
-    # ── SIF Precursor Density Heatmap: dynamic aggregation ────────────────────
-    # Canonical LSR name map — must match HeatmapView LSR columns exactly.
     _LSR_CANON = {
         "Energy Isolation": "Energy Isolation",
         "Line of Fire": "Line of Fire",
@@ -478,74 +481,37 @@ def analytics():
         "Safe Mechanical Lifting", "Work Authorisation", "Working at Height",
     ]
 
-    # Per-site count of SIF-potential reports (denominator for percentage)
-    _site_sif_total: dict = {}
-    # Per (site, rule) count of SIF-potential reports
-    _cell_count: dict = {}
+    _site_sif_total = {}
+    _cell_count = {}
 
-    for row in raw_rows:
-        try:
-            _rep = _json.loads(row['report_json'])
-            _res = _json.loads(row['result_json'])
-        except Exception:
+    for doc in docs:
+        is_sif = doc.get("ai_analysis", {}).get("sif_potential", False)
+        if not is_sif:
+            conf = float(doc.get("ai_analysis", {}).get("confidence", 0))
+            if conf > 1.0: conf /= 100.0
+            is_sif = conf >= 0.55
+            
+        if not is_sif:
             continue
-
-        _site = _rep.get("site") or "Unknown"
-
-        # Determine SIF-potential — same logic as dashboard p_sif >= 0.55.
-        # result_json is the primary source for seed reports.
-        _sif_pot = False
-        _res_conf = float(_res.get("confidence", 0) or 0)
-        if _res_conf > 1.0:
-            _res_conf /= 100.0
-        if _res.get("sif_potential") is not None:
-            _sif_pot = bool(_res["sif_potential"])
-        else:
-            _ai = _rep.get("ai_analysis") or {}
-            _ai_conf = float(_ai.get("confidence", 0) or 0)
-            if _ai_conf > 1.0:
-                _ai_conf /= 100.0
-            if _ai.get("sif_potential") is not None:
-                _sif_pot = bool(_ai["sif_potential"])
-            else:
-                _sif_pot = max(_res_conf, _ai_conf) >= 0.55
-
-        if not _sif_pot:
-            continue  # Only SIF-potential reports contribute to the heatmap
-
-        # Accumulate site SIF total
+            
+        raw_site = doc.get('site', 'Unknown')
+        _site = _normalize_site(raw_site)
         _site_sif_total[_site] = _site_sif_total.get(_site, 0) + 1
-
-        # Collect all LSRs for this report — multi-label handled.
-        _lsrs_raw: list = []
-
-        # Primary: result_json single life_saving_rule field (sif_engine path)
-        _single = _res.get("life_saving_rule")
-        if isinstance(_single, str) and _single:
-            _lsrs_raw.append(_single)
-
-        # result_json may also have life_saving_rules list (LLM AnalysisResult)
-        _lr_list = _res.get("life_saving_rules") or []
-        for _item in _lr_list:
+        
+        _lsrs_raw = []
+        ai_rules = doc.get("ai_analysis", {}).get("life_saving_rules") or []
+        for _item in ai_rules:
             if isinstance(_item, dict):
                 _r = _item.get("rule") or ""
-                if _r:
-                    _lsrs_raw.append(_r)
+                if _r: _lsrs_raw.append(_r)
             elif isinstance(_item, str) and _item:
                 _lsrs_raw.append(_item)
-
-        # Secondary: ai_analysis.life_saving_rules (LLM path)
-        _ai2 = _rep.get("ai_analysis") or {}
-        _ai_rules = _ai2.get("life_saving_rules") or []
-        for _item in _ai_rules:
-            if isinstance(_item, dict):
-                _r = _item.get("rule") or ""
-                if _r:
-                    _lsrs_raw.append(_r)
-            elif isinstance(_item, str) and _item:
-                _lsrs_raw.append(_item)
-
-        # Normalize and deduplicate, keep only recognised canonical rules
+                
+        if not _lsrs_raw:
+            ai = doc.get("ai_analysis", {})
+            if "life_saving_rule" in ai and ai["life_saving_rule"]:
+                _lsrs_raw.append(ai["life_saving_rule"])
+                
         _lsrs_canon = list(dict.fromkeys(
             _LSR_CANON[_r] for _r in _lsrs_raw
             if _r in _LSR_CANON and _LSR_CANON[_r] in _ALL_RULES
@@ -555,7 +521,6 @@ def analytics():
             _key = (_site, _lsr)
             _cell_count[_key] = _cell_count.get(_key, 0) + 1
 
-    # Build flat heatmap list for every non-zero cell
     _heatmap_cells = []
     for (_site, _rule), _cnt in sorted(_cell_count.items(), key=lambda x: -x[1]):
         _site_total = _site_sif_total.get(_site, 1)
@@ -580,6 +545,8 @@ def analytics():
         "activities": list(act_data.values()),
         "contractor_psif": sum(1 for r in formatted if r.get('contractor_type') == 'Contractor' and r['p_sif'] >= 0.55),
         "staff_psif": sum(1 for r in formatted if r.get('contractor_type') == 'OIL Staff' and r['p_sif'] >= 0.55),
+        "total_psif": sum(1 for r in formatted if r['p_sif'] >= 0.55),
         "top_barrier_failures": top_barrier_failures,
         "heatmap": _heatmap_cells,
     }
+

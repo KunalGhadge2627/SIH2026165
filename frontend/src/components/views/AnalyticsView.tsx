@@ -43,22 +43,17 @@ export const AnalyticsView: React.FC = () => {
   });
 
 
-  // Activity SIF Rate chart data
-  const activityChartData = ACTIVITIES.slice(0, 6).map((act) => {
-    const actReps = reports.filter((r) => r.activity === act);
-    const psif = actReps.filter((r) => r.p_sif >= 0.55).length;
-    return {
-      activity: act.split(' ')[0],
-      Total: actReps.length,
-      PSIF: psif
-    };
-  });
+  // Activity SIF Rate chart data (Dynamic from backend)
+  const activityChartData = (backendAnalytics?.activities || [])
+    .sort((a: any, b: any) => b.Total - a.Total)
+    .slice(0, 6);
 
   // Contractor vs Staff breakdown
   const contractorCount = reports.filter((r) => r.contractor_type === 'Contractor').length;
   const staffCount = reports.filter((r) => r.contractor_type === 'OIL Staff').length;
   const contractorPsif = reports.filter((r) => r.contractor_type === 'Contractor' && r.p_sif >= 0.55).length;
   const staffPsif = reports.filter((r) => r.contractor_type === 'OIL Staff' && r.p_sif >= 0.55).length;
+  const totalPsif = contractorPsif + staffPsif;
 
   const contractorPieData = [
     { name: 'Contractor PSIF', value: contractorPsif, color: '#EA580C' },
@@ -196,16 +191,16 @@ export const AnalyticsView: React.FC = () => {
               <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
                 <span className="font-bold text-orange-900 block">Contractor Personnel:</span>
                 <div className="text-lg font-extrabold text-orange-700 font-mono mt-0.5">
-                  {contractorPsif} PSIF Reports ({Math.round((contractorPsif / Math.max(1, contractorCount)) * 100)}%)
+                  {contractorPsif} PSIF Reports ({Math.round((contractorPsif / Math.max(1, totalPsif)) * 100)}%)
                 </div>
-                <span className="text-[10px] text-slate-500">Higher exposure in scaffold & rigging work.</span>
+                <span className="text-[10px] text-slate-500">Based on current dataset.</span>
               </div>
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
                 <span className="font-bold text-oil-navy block">OIL Direct Staff:</span>
                 <div className="text-lg font-extrabold text-oil-navy font-mono mt-0.5">
-                  {staffPsif} PSIF Reports ({Math.round((staffPsif / Math.max(1, staffCount)) * 100)}%)
+                  {staffPsif} PSIF Reports ({Math.round((staffPsif / Math.max(1, totalPsif)) * 100)}%)
                 </div>
-                <span className="text-[10px] text-slate-500">Exposure concentrated in plant operations & startup.</span>
+                <span className="text-[10px] text-slate-500">Based on current dataset.</span>
               </div>
             </div>
           </div>
