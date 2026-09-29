@@ -17,6 +17,10 @@ def _ensure_sqlite_db():
 def init_firestore():
     """Initializes Firebase Firestore client if credentials are configured."""
     global _db_client, _using_firestore
+    
+    from dotenv import load_dotenv
+    load_dotenv()
+    
     cred_path = os.environ.get("FIREBASE_CREDENTIALS") or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
     project_id = os.environ.get("FIREBASE_PROJECT_ID") or os.environ.get("GCP_PROJECT")
 

@@ -21,3 +21,8 @@ env/
 
 # Build/cache
 *.tsbuildinfo
+
+# Firebase credentials
+firebase_credentials.json
+
+
