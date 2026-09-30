@@ -1,8 +1,6 @@
 import { SafetyReport, PrecursorPattern, EarlyWarningAlert } from '../types/safety';
 
-const API_BASE_URL = typeof window !== 'undefined' && window.location.port === '5173'
-  ? '/api'
-  : 'http://127.0.0.1:8000/api';
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '';
 
 export interface SingleReportPayload {
   report_id?: string;
@@ -60,7 +58,7 @@ export interface AnalyticsResponse {
 export const api = {
   async checkHealth(): Promise<boolean> {
     try {
-      const res = await fetch(`${API_BASE_URL}/health`, { signal: AbortSignal.timeout(3000) });
+      const res = await fetch(`${API_BASE_URL}/api/health`, { signal: AbortSignal.timeout(3000) });
       return res.ok;
     } catch {
       return false;
@@ -68,43 +66,43 @@ export const api = {
   },
 
   async getReports(): Promise<SafetyReport[]> {
-    const res = await fetch(`${API_BASE_URL}/reports`);
+    const res = await fetch(`${API_BASE_URL}/api/reports`);
     if (!res.ok) throw new Error('Failed to fetch reports from backend');
     return res.json();
   },
 
   async getReportById(reportId: string): Promise<{ document: any; safety_report: SafetyReport }> {
-    const res = await fetch(`${API_BASE_URL}/reports/${reportId}`);
+    const res = await fetch(`${API_BASE_URL}/api/reports/${reportId}`);
     if (!res.ok) throw new Error(`Failed to fetch report '${reportId}'`);
     return res.json();
   },
 
   async getPatterns(): Promise<PrecursorPattern[]> {
-    const res = await fetch(`${API_BASE_URL}/patterns`);
+    const res = await fetch(`${API_BASE_URL}/api/patterns`);
     if (!res.ok) throw new Error('Failed to fetch patterns from backend');
     return res.json();
   },
 
   async getDashboard(): Promise<DashboardMetricsResponse> {
-    const res = await fetch(`${API_BASE_URL}/dashboard`);
+    const res = await fetch(`${API_BASE_URL}/api/dashboard`);
     if (!res.ok) throw new Error('Failed to fetch dashboard metrics');
     return res.json();
   },
 
   async getAnalytics(): Promise<AnalyticsResponse> {
-    const res = await fetch(`${API_BASE_URL}/analytics`);
+    const res = await fetch(`${API_BASE_URL}/api/analytics`);
     if (!res.ok) throw new Error('Failed to fetch analytics');
     return res.json();
   },
 
   async getAlerts(): Promise<EarlyWarningAlert[]> {
-    const res = await fetch(`${API_BASE_URL}/alerts`);
+    const res = await fetch(`${API_BASE_URL}/api/alerts`);
     if (!res.ok) throw new Error('Failed to fetch alerts');
     return res.json();
   },
 
   async updateAlertStatus(alertId: string, status: EarlyWarningAlert['status']): Promise<{ status: string; alert_id: string; new_status: string }> {
-    const res = await fetch(`${API_BASE_URL}/alerts/${alertId}/status`, {
+    const res = await fetch(`${API_BASE_URL}/api/alerts/${alertId}/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
@@ -114,7 +112,7 @@ export const api = {
   },
 
   async analyzeReport(payload: SingleReportPayload): Promise<{ is_duplicate?: boolean; analysis: any; document: any; safety_report: SafetyReport }> {
-    const res = await fetch(`${API_BASE_URL}/reports/analyze`, {
+    const res = await fetch(`${API_BASE_URL}/api/reports/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -141,7 +139,7 @@ export const api = {
   async uploadCsv(file: File): Promise<CsvUploadResponse> {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch(`${API_BASE_URL}/reports/upload-csv`, {
+    const res = await fetch(`${API_BASE_URL}/api/reports/upload-csv`, {
       method: 'POST',
       body: formData
     });
@@ -153,6 +151,6 @@ export const api = {
   },
 
   downloadCsvTemplate() {
-    window.location.href = `${API_BASE_URL}/reports/template/csv`;
+    window.location.href = `${API_BASE_URL}/api/reports/template/csv`;
   }
 };
