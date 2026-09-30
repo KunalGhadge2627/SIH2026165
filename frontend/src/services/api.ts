@@ -1,9 +1,8 @@
 import { SafetyReport, PrecursorPattern, EarlyWarningAlert } from '../types/safety';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (typeof window !== 'undefined' && window.location.port === '5173'
-    ? '/api'
-    : 'http://127.0.0.1:8000/api');
+const API_BASE_URL = typeof window !== 'undefined' && window.location.port === '5173'
+  ? '/api'
+  : 'http://127.0.0.1:8000/api';
 
 export interface SingleReportPayload {
   report_id?: string;
