@@ -12,7 +12,9 @@ class Settings(BaseSettings):
 
     @property
     def cors_list(self):
-        return ["*"]
+        if not self.cors_origins or self.cors_origins == "*":
+            return ["*"]
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 settings = Settings()
 
