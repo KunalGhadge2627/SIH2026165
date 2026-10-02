@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'sih-165-one.vercel.app',
+        target: 'sih165.vercel.app',
         changeOrigin: true
       }
     }
