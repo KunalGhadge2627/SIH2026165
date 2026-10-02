@@ -81,7 +81,7 @@ export const DashboardView: React.FC = () => {
     <div className="space-y-6 max-w-[1500px] mx-auto">
       <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-oil-gold">OIL Safety Intelligence</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-oil-gold">SIF Sentinel</p>
           <h1 className="mt-1 text-2xl lg:text-3xl font-extrabold tracking-tight text-oil-navy">Safety overview</h1>
           <p className="mt-2 text-sm text-slate-500 max-w-2xl">AI reads safety reports, highlights possible serious risks, connects them to safety rules, and helps you spot recurring patterns.</p>
         </div>

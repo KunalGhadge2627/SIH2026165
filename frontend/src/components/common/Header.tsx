@@ -44,7 +44,7 @@ export const Header: React.FC = () => {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-oil-navy text-base lg:text-lg truncate">OIL Safety Intelligence</span>
+                <span className="font-extrabold text-oil-navy text-base lg:text-lg truncate"> SIF Sentinel</span>
                 <span className="hidden md:inline-flex rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">AI</span>
               </div>
               <p className="text-xs text-slate-500 truncate">AI-powered SIF precursor detection</p>

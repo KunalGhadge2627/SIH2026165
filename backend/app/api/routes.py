@@ -95,7 +95,7 @@ def _build_safety_report_format(doc: dict) -> dict:
 
 @router.get('/health')
 def health():
-    return {"status": "ok", "service": "OIL Safety Intelligence V5 (LLM Engine)", "version": "5.0.0"}
+    return {"status": "ok", "service": " SIF Sentinel V5 (LLM Engine)", "version": "5.0.0"}
 
 
 @router.post('/reports/analyze')

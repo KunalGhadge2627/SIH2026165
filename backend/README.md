@@ -1,4 +1,4 @@
-# OIL Safety Intelligence V5 — Backend
+#  SIF Sentinel V5 — Backend
 
 Functional FastAPI prototype for the OIL SIF precursor problem statement.
 
