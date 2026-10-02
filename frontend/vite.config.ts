@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://sih2026165.onrender.com',
+        target: 'sih-165-one.vercel.app',
         changeOrigin: true
       }
     }

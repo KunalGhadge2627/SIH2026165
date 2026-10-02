@@ -4,7 +4,7 @@ class Settings(BaseSettings):
     app_name: str = " SIF Sentinel"
     api_prefix: str = "/api"
     database_url: str = "sqlite:///./oil_safety.db"
-    cors_origins: str = "http://localhost:5173, https://sih165.vercel.app"
+    cors_origins: str = "http://localhost:5173, sih-165-one.vercel.app"
     llm_provider: str = "none"
     llm_api_key: str = ""
     llm_model: str = ""
